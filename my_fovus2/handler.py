@@ -67,6 +67,6 @@ def hello2(event, context):
          MaxCount = 1,
          InstanceType = 't2.micro',
          KeyName = 'my_key_pair',
-         SecurityGroupIds=['sg-0d65122ae2ea576ff'],
+        #  SecurityGroupIds=['sg-0d65122ae2ea576ff'],
          TagSpecifications = [{'ResourceType': 'instance', 'Tags': [{'Key':'Instance', 'Value': 'Trigger_script'}]}]
     )
