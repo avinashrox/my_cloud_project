@@ -1,0 +1,765 @@
+{
+  "service": {
+    "service": "myservice",
+    "serviceObject": {
+      "name": "myservice"
+    },
+    "provider": {
+      "name": "aws",
+      "runtime": "python3.8",
+      "iam": {
+        "role": {
+          "managedPolicies": [
+            "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+            "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+            "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+          ]
+        }
+      },
+      "stage": "dev",
+      "region": "us-east-1",
+      "versionFunctions": true,
+      "compiledCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "ServerlessDeploymentBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketEncryption": {
+                "ServerSideEncryptionConfiguration": [
+                  {
+                    "ServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ServerlessDeploymentBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "ServerlessDeploymentBucket"
+              },
+              "PolicyDocument": {
+                "Statement": [
+                  {
+                    "Action": "s3:*",
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Resource": [
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            },
+                            "/*"
+                          ]
+                        ]
+                      },
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "Condition": {
+                      "Bool": {
+                        "aws:SecureTransport": false
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "FirstUnderscorestepLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/myservice-dev-first_step"
+            }
+          },
+          "SecondUnderscorestepLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/myservice-dev-second_step"
+            }
+          },
+          "IamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "myservice",
+                        "dev",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/myservice-dev*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/myservice-dev*:*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "dynamodb:GetRecords",
+                          "dynamodb:GetShardIterator",
+                          "dynamodb:DescribeStream",
+                          "dynamodb:ListStreams"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::GetAtt": [
+                              "Inputtable",
+                              "StreamArn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "myservice",
+                    "dev",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "lambdaRole"
+                  ]
+                ]
+              },
+              "ManagedPolicyArns": [
+                "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+                "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+                "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+              ]
+            }
+          },
+          "FirstUnderscorestepLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": {
+                  "Ref": "ServerlessDeploymentBucket"
+                },
+                "S3Key": "serverless/myservice/dev/1650341798739-2022-04-19T04:16:38.739Z/myservice.zip"
+              },
+              "Handler": "handler.hello",
+              "Runtime": "python3.8",
+              "FunctionName": "myservice-dev-first_step",
+              "MemorySize": 1024,
+              "Timeout": 6,
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "FirstUnderscorestepLogGroup"
+            ]
+          },
+          "SecondUnderscorestepLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": {
+                  "Ref": "ServerlessDeploymentBucket"
+                },
+                "S3Key": "serverless/myservice/dev/1650341798739-2022-04-19T04:16:38.739Z/myservice.zip"
+              },
+              "Handler": "handler.hello2",
+              "Runtime": "python3.8",
+              "FunctionName": "myservice-dev-second_step",
+              "MemorySize": 1024,
+              "Timeout": 6,
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "SecondUnderscorestepLogGroup"
+            ]
+          },
+          "FirstUnderscorestepLambdaVersion92ak41QVq6zKtTHAbJifEnxAImpPiJWXqPG9K67KF4": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "FirstUnderscorestepLambdaFunction"
+              },
+              "CodeSha256": "U9XLBVkZbDZyZzifjNtqlqpHFbXIiT45xgmlUYb9xXo="
+            }
+          },
+          "SecondUnderscorestepLambdaVersionGkQkKzVCHz0PBrd3U6WC7mzBIaHMfZPKkq1O00nY2Y": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "SecondUnderscorestepLambdaFunction"
+              },
+              "CodeSha256": "U9XLBVkZbDZyZzifjNtqlqpHFbXIiT45xgmlUYb9xXo="
+            }
+          },
+          "SecondUnderscorestepEventSourceMappingDynamodbInputtable": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "DependsOn": [
+              "IamRoleLambdaExecution"
+            ],
+            "Properties": {
+              "BatchSize": 10,
+              "Enabled": true,
+              "EventSourceArn": {
+                "Fn::GetAtt": [
+                  "Inputtable",
+                  "StreamArn"
+                ]
+              },
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "SecondUnderscorestepLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "StartingPosition": "TRIM_HORIZON"
+            }
+          },
+          "HttpApi": {
+            "Type": "AWS::ApiGatewayV2::Api",
+            "Properties": {
+              "Name": "dev-myservice",
+              "ProtocolType": "HTTP"
+            }
+          },
+          "HttpApiStage": {
+            "Type": "AWS::ApiGatewayV2::Stage",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "StageName": "$default",
+              "AutoDeploy": true,
+              "DefaultRouteSettings": {
+                "DetailedMetricsEnabled": false
+              }
+            }
+          },
+          "FirstUnderscorestepLambdaPermissionHttpApi": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "FirstUnderscorestepLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Action": "lambda:InvokeFunction",
+              "Principal": "apigateway.amazonaws.com",
+              "SourceArn": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":execute-api:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":",
+                    {
+                      "Ref": "HttpApi"
+                    },
+                    "/*"
+                  ]
+                ]
+              }
+            }
+          },
+          "HttpApiIntegrationFirstUnderscorestep": {
+            "Type": "AWS::ApiGatewayV2::Integration",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "IntegrationType": "AWS_PROXY",
+              "IntegrationUri": {
+                "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"FirstUnderscorestepLambdaPermissionHttpApi\"][\"Properties\"][\"FunctionName\"]"
+              },
+              "PayloadFormatVersion": "2.0",
+              "TimeoutInMillis": 6500
+            }
+          },
+          "HttpApiRoutePost": {
+            "Type": "AWS::ApiGatewayV2::Route",
+            "Properties": {
+              "ApiId": {
+                "Ref": "HttpApi"
+              },
+              "RouteKey": "POST /",
+              "Target": {
+                "Fn::Join": [
+                  "/",
+                  [
+                    "integrations",
+                    {
+                      "Ref": "HttpApiIntegrationFirstUnderscorestep"
+                    }
+                  ]
+                ]
+              }
+            },
+            "DependsOn": "HttpApiIntegrationFirstUnderscorestep"
+          },
+          "MyS3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketName": "fovus-input"
+            }
+          },
+          "Inputtable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "Input_table",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "id",
+                  "AttributeType": "N"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "id",
+                  "KeyType": "HASH"
+                }
+              ],
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 5,
+                "WriteCapacityUnits": 5
+              },
+              "StreamSpecification": {
+                "StreamViewType": "KEYS_ONLY"
+              }
+            }
+          },
+          "Outputtable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "Output_table",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "id",
+                  "AttributeType": "N"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "id",
+                  "KeyType": "HASH"
+                }
+              ],
+              "ProvisionedThroughput": {
+                "ReadCapacityUnits": 5,
+                "WriteCapacityUnits": 5
+              }
+            }
+          },
+          "StaticSite": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketName": "website-fovus-project2",
+              "WebsiteConfiguration": {
+                "IndexDocument": "index.html"
+              }
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": {
+              "Ref": "ServerlessDeploymentBucket"
+            },
+            "Export": {
+              "Name": "sls-myservice-dev-ServerlessDeploymentBucketName"
+            }
+          },
+          "FirstUnderscorestepLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "FirstUnderscorestepLambdaVersion92ak41QVq6zKtTHAbJifEnxAImpPiJWXqPG9K67KF4"
+            },
+            "Export": {
+              "Name": "sls-myservice-dev-FirstUnderscorestepLambdaFunctionQualifiedArn"
+            }
+          },
+          "SecondUnderscorestepLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "SecondUnderscorestepLambdaVersionGkQkKzVCHz0PBrd3U6WC7mzBIaHMfZPKkq1O00nY2Y"
+            },
+            "Export": {
+              "Name": "sls-myservice-dev-SecondUnderscorestepLambdaFunctionQualifiedArn"
+            }
+          },
+          "HttpApiId": {
+            "Description": "Id of the HTTP API",
+            "Value": {
+              "Ref": "HttpApi"
+            },
+            "Export": {
+              "Name": "sls-myservice-dev-HttpApiId"
+            }
+          },
+          "HttpApiUrl": {
+            "Description": "URL of the HTTP API",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "https://",
+                  {
+                    "Ref": "HttpApi"
+                  },
+                  ".execute-api.",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  }
+                ]
+              ]
+            },
+            "Export": {
+              "Name": "sls-myservice-dev-HttpApiUrl"
+            }
+          }
+        }
+      },
+      "coreCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "ServerlessDeploymentBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketEncryption": {
+                "ServerSideEncryptionConfiguration": [
+                  {
+                    "ServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ServerlessDeploymentBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "ServerlessDeploymentBucket"
+              },
+              "PolicyDocument": {
+                "Statement": [
+                  {
+                    "Action": "s3:*",
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Resource": [
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            },
+                            "/*"
+                          ]
+                        ]
+                      },
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "Condition": {
+                      "Bool": {
+                        "aws:SecureTransport": false
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": {
+              "Ref": "ServerlessDeploymentBucket"
+            }
+          }
+        }
+      },
+      "vpc": {}
+    },
+    "custom": {
+      "pythonRequirements": {
+        "dockerizePip": true
+      },
+      "s3Sync": [
+        {
+          "bucketName": "website-fovus-project2",
+          "localDir": "build/",
+          "acl": "public-read"
+        }
+      ]
+    },
+    "plugins": [
+      "serverless-python-requirements",
+      "serverless-s3-sync"
+    ],
+    "pluginsData": {},
+    "functions": {
+      "first_step": {
+        "handler": "handler.hello",
+        "events": [
+          {
+            "httpApi": {
+              "path": "/",
+              "method": "post"
+            },
+            "resolvedMethod": "POST",
+            "resolvedPath": "/"
+          }
+        ],
+        "name": "myservice-dev-first_step",
+        "package": {},
+        "memory": 1024,
+        "timeout": 6,
+        "runtime": "python3.8",
+        "vpc": {},
+        "versionLogicalId": "FirstUnderscorestepLambdaVersion92ak41QVq6zKtTHAbJifEnxAImpPiJWXqPG9K67KF4"
+      },
+      "second_step": {
+        "handler": "handler.hello2",
+        "events": [
+          {
+            "stream": {
+              "type": "dynamodb",
+              "arn": {
+                "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"IamRoleLambdaExecution\"][\"Properties\"][\"Policies\"][0][\"PolicyDocument\"][\"Statement\"][2][\"Resource\"][0]"
+              }
+            }
+          }
+        ],
+        "name": "myservice-dev-second_step",
+        "package": {},
+        "memory": 1024,
+        "timeout": 6,
+        "runtime": "python3.8",
+        "vpc": {},
+        "versionLogicalId": "SecondUnderscorestepLambdaVersionGkQkKzVCHz0PBrd3U6WC7mzBIaHMfZPKkq1O00nY2Y"
+      }
+    },
+    "resources": {
+      "Resources": {
+        "MyS3Bucket": {
+          "Type": "AWS::S3::Bucket",
+          "Properties": {
+            "BucketName": "fovus-input"
+          }
+        },
+        "Inputtable": {
+          "Type": "AWS::DynamoDB::Table",
+          "Properties": {
+            "TableName": "Input_table",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "id",
+                "AttributeType": "N"
+              }
+            ],
+            "KeySchema": [
+              {
+                "AttributeName": "id",
+                "KeyType": "HASH"
+              }
+            ],
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 5,
+              "WriteCapacityUnits": 5
+            },
+            "StreamSpecification": {
+              "StreamViewType": "KEYS_ONLY"
+            }
+          }
+        },
+        "Outputtable": {
+          "Type": "AWS::DynamoDB::Table",
+          "Properties": {
+            "TableName": "Output_table",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "id",
+                "AttributeType": "N"
+              }
+            ],
+            "KeySchema": [
+              {
+                "AttributeName": "id",
+                "KeyType": "HASH"
+              }
+            ],
+            "ProvisionedThroughput": {
+              "ReadCapacityUnits": 5,
+              "WriteCapacityUnits": 5
+            }
+          }
+        },
+        "StaticSite": {
+          "Type": "AWS::S3::Bucket",
+          "Properties": {
+            "BucketName": "website-fovus-project2",
+            "WebsiteConfiguration": {
+              "IndexDocument": "index.html"
+            }
+          }
+        }
+      },
+      "Outputs": {}
+    },
+    "configValidationMode": "warn",
+    "serviceFilename": "serverless.yml",
+    "initialServerlessConfig": {
+      "service": "myservice",
+      "frameworkVersion": "3",
+      "provider": {
+        "$ref": "$[\"service\"][\"provider\"]"
+      },
+      "plugins": {
+        "$ref": "$[\"service\"][\"plugins\"]"
+      },
+      "custom": {
+        "$ref": "$[\"service\"][\"custom\"]"
+      },
+      "package": {
+        "exclude": [
+          "node_modules/**",
+          "venv/**"
+        ],
+        "artifactsS3KeyDirname": "serverless/myservice/dev/code-artifacts",
+        "artifact": "C:\\Users\\Avinash\\Desktop\\my_fovus2\\.serverless\\myservice.zip",
+        "artifactDirectoryName": "serverless/myservice/dev/1650341798739-2022-04-19T04:16:38.739Z"
+      },
+      "functions": {
+        "$ref": "$[\"service\"][\"functions\"]"
+      },
+      "resources": {
+        "$ref": "$[\"service\"][\"resources\"]"
+      }
+    },
+    "layers": {},
+    "isDashboardMonitoringPreconfigured": false,
+    "artifact": "C:\\Users\\Avinash\\Desktop\\my_fovus2\\.serverless\\myservice.zip"
+  },
+  "package": {
+    "artifactDirectoryName": "serverless/myservice/dev/1650341798739-2022-04-19T04:16:38.739Z",
+    "artifact": "myservice.zip"
+  }
+}

@@ -1,0 +1,103 @@
+service: myservice
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.8
+
+  # apiGateway:
+  #   binaryMediaTypes:
+  #     - 'multipart/form-data'
+
+  iam:
+    # role: arn:aws:iam::655507378375:role/service-role/lambda-myservice
+    role:
+      managedPolicies:
+        - 'arn:aws:iam::aws:policy/AmazonEC2FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+
+plugins:
+  - serverless-python-requirements
+  - serverless-s3-sync
+
+custom:
+  pythonRequirements:
+    dockerizePip: true  
+  s3Sync:
+    - bucketName: website-fovus-project2
+      localDir: build/
+      acl: public-read 
+
+package:
+  exclude:
+    - node_modules/**
+    - venv/**
+
+functions:
+  first_step:
+    handler: handler.hello
+    events:
+     - httpApi:
+         path: /
+         method: post
+  second_step:    
+    handler: handler.hello2
+    events:
+      - stream:
+          type: dynamodb
+          arn: 
+            Fn::GetAtt: 
+              - Inputtable
+              - StreamArn
+
+resources:
+  Resources:
+    MyS3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: fovus-input
+    Inputtable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Input_table
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: N
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        StreamSpecification:
+          StreamViewType: KEYS_ONLY  
+    Outputtable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Output_table
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: N
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5  
+    StaticSite:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: website-fovus-project2
+        WebsiteConfiguration:
+          IndexDocument: index.html              
+
+
+
+
+
+
+
+
+
